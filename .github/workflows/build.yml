@@ -1,0 +1,36 @@
+name: Build Docker image
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image (fetches latest model from DagsHub)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          no-cache: true   # force le re-téléchargement du dernier modèle à chaque build
+          tags: mlflow-api:latest
+          build-args: |
+            MLFLOW_TRACKING_URI=${{ secrets.MLFLOW_TRACKING_URI }}
+            MLFLOW_EXPERIMENT_NAME=RandomForest_V1.0.1
+          secrets: |
+            dagshub_user=${{ secrets.DAGSHUB_USER }}
+            dagshub_token=${{ secrets.DAGSHUB_TOKEN }}
+
+      - name: Smoke test
+        run: |
+          docker run -d -p 8000:8000 --name api mlflow-api:latest
+          sleep 10
+          docker logs api
+        
